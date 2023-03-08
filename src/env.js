@@ -1,6 +1,6 @@
 export const ENV = {
   // OpenAI API Key
-  API_KEY: null,
+  API_KEYS: [],
   // 允许访问的Telegram Token， 设置时以逗号分隔
   TELEGRAM_AVAILABLE_TOKENS: [],
   // 允许访问的Telegram Token 对应的Bot Name， 设置时以逗号分隔

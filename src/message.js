@@ -95,7 +95,7 @@ async function msgSaveLastMessage(message) {
 
 // 检查环境变量是否设置
 async function msgCheckEnvIsReady(message) {
-  if (!ENV.API_KEY) {
+  if (!ENV.API_KEYS) {
     return sendMessageToTelegram('OpenAI API Key 未设置');
   }
   if (!DATABASE) {
