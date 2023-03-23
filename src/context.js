@@ -1,9 +1,9 @@
-import {DATABASE, ENV} from './env.js';
+import {DATABASE} from './env.js';
 
 // 用户配置
 export const USER_CONFIG = {
   // 系统初始化消息
-  SYSTEM_INIT_MESSAGE: ENV.SYSTEM_INIT_MESSAGE,
+  SYSTEM_INIT_MESSAGE: '',
   // OpenAI API 额外参数
   OPENAI_API_EXTRA_PARAMS: {},
 };

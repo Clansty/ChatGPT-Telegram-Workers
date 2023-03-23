@@ -37,3 +37,22 @@ export async function sendMessageToChatGPT(message, history) {
   }
 }
 
+export const getCredits = async () => {
+  const status = await Promise.all(ENV.API_KEYS.map(async key => {
+    try {
+      const req = await fetch('https://api.openai.com/dashboard/billing/credit_grants', {
+        headers: {
+          'Authorization': `Bearer ${key}`,
+        },
+      })
+      const res = await req.json()
+      if (res.error) {
+        return `${key}: ${res.error.message}`
+      }
+      return `${key}: ${res.total_available} / ${res.total_granted}`
+    } catch (error) {
+      return `${key}: ${error.message}`
+    }
+  }))
+  return status.join('\n')
+}

@@ -1,7 +1,7 @@
-import {DATABASE, ENV, CONST} from './env.js';
-import {SHARE_CONTEXT, USER_CONFIG, CURRENT_CHAT_CONTEXT} from './context.js';
-import {sendMessageToTelegram, sendChatActionToTelegram, getChatRole} from './telegram.js';
-import {sendMessageToChatGPT} from './openai.js';
+import { DATABASE, ENV, CONST } from './env.js';
+import { SHARE_CONTEXT, USER_CONFIG, CURRENT_CHAT_CONTEXT } from './context.js';
+import { sendMessageToTelegram, sendChatActionToTelegram, getChatRole } from './telegram.js';
+import { getCredits, sendMessageToChatGPT } from './openai.js';
 
 // / --  Command
 // 命令绑定
@@ -14,7 +14,7 @@ const commandHandlers = {
   '/new': {
     help: '发起新的对话',
     fn: commandCreateNewChatContext,
-    needAuth: function() {
+    needAuth: function () {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         // 每个人在群里有上下文的时候，不限制
         if (!ENV.GROUP_CHAT_BOT_SHARE_MODE) {
@@ -29,7 +29,7 @@ const commandHandlers = {
     help: '获取你的ID，并发起新的对话',
     hidden: true,
     fn: commandCreateNewChatContext,
-    needAuth: function() {
+    needAuth: function () {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         return ['administrator', 'creator'];
       }
@@ -40,7 +40,7 @@ const commandHandlers = {
     help: '获取当前版本号, 判断是否需要更新',
     hidden: true,
     fn: commandFetchUpdate,
-    needAuth: function() {
+    needAuth: function () {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         return ['administrator', 'creator'];
       }
@@ -51,7 +51,7 @@ const commandHandlers = {
     help: '设置用户配置，命令完整格式为 /setenv KEY=VALUE',
     hidden: true,
     fn: commandUpdateUserConfig,
-    needAuth: function() {
+    needAuth: function () {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         return ['administrator', 'creator'];
       }
@@ -61,11 +61,20 @@ const commandHandlers = {
   '/setinit': {
     help: '设置开始新会话时发送的内容，“咒语”',
     fn: (message, command, subcommand) => commandUpdateUserConfig(message, command, "SYSTEM_INIT_MESSAGE=" + subcommand),
-    needAuth: function() {
+    needAuth: function () {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         return ['administrator', 'creator'];
       }
       return false;
+    },
+  },
+  '/credits': {
+    help: '获取 API Key 剩余额度',
+    hidden: true,
+    fn: async () => {
+      if (CURRENT_CHAT_CONTEXT.chat_id !== 351768429) return
+      const credits = await getCredits()
+      return sendMessageToTelegram(credits);
     },
   },
 };
@@ -73,10 +82,10 @@ const commandHandlers = {
 // 命令帮助
 async function commandGetHelp(message, command, subcommand) {
   const helpMsg =
-      '当前支持以下命令:\n' +
-      Object.keys(commandHandlers)
-          .map((key) => `${key}：${commandHandlers[key].help}`)
-          .join('\n');
+    '当前支持以下命令:\n' +
+    Object.keys(commandHandlers)
+      .map((key) => `${key}：${commandHandlers[key].help}`)
+      .join('\n');
   return sendMessageToTelegram(helpMsg);
 }
 
@@ -85,13 +94,13 @@ async function commandCreateNewChatContext(message, command, subcommand) {
   try {
     await DATABASE.delete(SHARE_CONTEXT.chatHistoryKey);
     if (command === '/start') {
-      if (SHARE_CONTEXT.chatType==='private') {
+      if (SHARE_CONTEXT.chatType === 'private') {
         sendMessageToTelegram(
-            `新的对话已经开始，你的ID(${CURRENT_CHAT_CONTEXT.chat_id})`,
+          `新的对话已经开始，你的ID(${CURRENT_CHAT_CONTEXT.chat_id})`,
         );
       } else {
         sendMessageToTelegram(
-            `新的对话已经开始，群组ID(${CURRENT_CHAT_CONTEXT.chat_id})`,
+          `新的对话已经开始，群组ID(${CURRENT_CHAT_CONTEXT.chat_id})`,
         );
       }
     }
@@ -99,8 +108,8 @@ async function commandCreateNewChatContext(message, command, subcommand) {
     const initMessage = subcommand || USER_CONFIG.SYSTEM_INIT_MESSAGE;
     const history = [];
     const answer = await sendMessageToChatGPT(initMessage, history);
-    history.push({role: 'user', content: initMessage});
-    history.push({role: 'assistant', content: answer});
+    history.push({ role: 'user', content: initMessage });
+    history.push({ role: 'assistant', content: answer });
     await DATABASE.put(SHARE_CONTEXT.chatHistoryKey, JSON.stringify(history));
     return sendMessageToTelegram(answer);
   } catch (e) {
@@ -113,7 +122,7 @@ async function commandUpdateUserConfig(message, command, subcommand) {
   const kv = subcommand.indexOf('=');
   if (kv === -1) {
     return sendMessageToTelegram(
-        '配置项格式错误: 命令完整格式为 /setenv KEY=VALUE',
+      '配置项格式错误: 命令完整格式为 /setenv KEY=VALUE',
     );
   }
   const key = subcommand.slice(0, kv);
@@ -143,8 +152,8 @@ async function commandUpdateUserConfig(message, command, subcommand) {
         return sendMessageToTelegram('不支持的配置项或数据类型错误');
     }
     await DATABASE.put(
-        SHARE_CONTEXT.configStoreKey,
-        JSON.stringify(USER_CONFIG),
+      SHARE_CONTEXT.configStoreKey,
+      JSON.stringify(USER_CONFIG),
     );
     return sendMessageToTelegram('更新配置成功');
   } catch (e) {
@@ -172,7 +181,7 @@ async function commandFetchUpdate(message, command, subcommand) {
   };
   if (current.ts < online.ts) {
     return sendMessageToTelegram(
-        ` 发现新版本， 当前版本: ${JSON.stringify(current)}，最新版本: ${JSON.stringify(online)}`,
+      ` 发现新版本， 当前版本: ${JSON.stringify(current)}，最新版本: ${JSON.stringify(online)}`,
     );
   } else {
     return sendMessageToTelegram(`当前已经是最新版本, 当前版本: ${JSON.stringify(current)}`);
@@ -214,19 +223,19 @@ export async function handleCommandMessage(message) {
 
 export async function setCommandForTelegram(token) {
   return await fetch(
-      `https://api.telegram.org/bot${token}/setMyCommands`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          commands: Object.entries(commandHandlers).filter(([key, value]) => !value.hidden)
-            .map(([key, value]) => ({
-              command: key,
-              description: value.help,
-            })),
-        }),
+    `https://api.telegram.org/bot${token}/setMyCommands`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        commands: Object.entries(commandHandlers).filter(([key, value]) => !value.hidden)
+          .map(([key, value]) => ({
+            command: key,
+            description: value.help,
+          })),
+      }),
+    },
   ).then((res) => res.json());
 }

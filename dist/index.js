@@ -1,75 +1,7 @@
-// src/env.js
-var ENV = {
-  // OpenAI API Key
-  API_KEY: null,
-  // 允许访问的Telegram Token， 设置时以逗号分隔
-  TELEGRAM_AVAILABLE_TOKENS: [],
-  // 允许访问的Telegram Token 对应的Bot Name， 设置时以逗号分隔
-  TELEGRAM_BOT_NAME: [],
-  // 允许所有人使用
-  I_AM_A_GENEROUS_PERSON: false,
-  // 白名单
-  CHAT_WHITE_LIST: [],
-  // 群组白名单
-  CHAT_GROUP_WHITE_LIST: [],
-  // 群组机器人开关
-  GROUP_CHAT_BOT_ENABLE: true,
-  // 群组机器人共享模式,关闭后，一个群组只有一个会话和配置。开启的话群组的每个人都有自己的会话上下文
-  GROUP_CHAT_BOT_SHARE_MODE: false,
-  // 为了避免4096字符限制，将消息删减
-  AUTO_TRIM_HISTORY: false,
-  // 最大历史记录长度
-  MAX_HISTORY_LENGTH: 20,
-  // 调试模式
-  DEBUG_MODE: false,
-  // 当前版本
-  BUILD_TIMESTAMP: 1678245405,
-  // 当前版本 commit id
-  BUILD_VERSION: "451537f"
-};
-var CONST = {
-  PASSWORD_KEY: "chat_history_password",
-  GROUP_TYPES: ["group", "supergroup"]
-};
-var DATABASE = null;
-function initEnv(env) {
-  DATABASE = env.DATABASE;
-  for (const key in ENV) {
-    if (env[key]) {
-      switch (typeof ENV[key]) {
-        case "number":
-          ENV[key] = parseInt(env[key]) || ENV[key];
-          break;
-        case "boolean":
-          ENV[key] = (env[key] || "false") === "true";
-          break;
-        case "object":
-          if (Array.isArray(ENV[key])) {
-            ENV[key] = env[key].split(",");
-          } else {
-            ENV[key] = env[key];
-          }
-          break;
-        default:
-          ENV[key] = env[key];
-          break;
-      }
-    }
-  }
-  {
-    if (env.TELEGRAM_TOKEN && !ENV.TELEGRAM_AVAILABLE_TOKENS.includes(env.TELEGRAM_TOKEN)) {
-      if (env.BOT_NAME && ENV.TELEGRAM_AVAILABLE_TOKENS.length === ENV.TELEGRAM_BOT_NAME.length) {
-        ENV.TELEGRAM_BOT_NAME.push(env.BOT_NAME);
-      }
-      ENV.TELEGRAM_AVAILABLE_TOKENS.push(env.TELEGRAM_TOKEN);
-    }
-  }
-}
-
 // src/context.js
 var USER_CONFIG = {
   // 系统初始化消息
-  SYSTEM_INIT_MESSAGE: "\u4F60\u662F\u4E00\u4E2A\u5F97\u529B\u7684\u52A9\u624B",
+  SYSTEM_INIT_MESSAGE: "",
   // OpenAI API 额外参数
   OPENAI_API_EXTRA_PARAMS: {}
 };
@@ -112,6 +44,78 @@ async function initUserConfig(id) {
   } catch (e) {
     console.error(e);
   }
+}
+
+// src/env.js
+var ENV = {
+  // OpenAI API Key
+  API_KEYS: [],
+  // 允许访问的Telegram Token， 设置时以逗号分隔
+  TELEGRAM_AVAILABLE_TOKENS: [],
+  // 允许访问的Telegram Token 对应的Bot Name， 设置时以逗号分隔
+  TELEGRAM_BOT_NAME: [],
+  // 允许所有人使用
+  I_AM_A_GENEROUS_PERSON: false,
+  // 白名单
+  CHAT_WHITE_LIST: [],
+  // 群组白名单
+  CHAT_GROUP_WHITE_LIST: [],
+  // 群组机器人开关
+  GROUP_CHAT_BOT_ENABLE: true,
+  // 群组机器人共享模式,关闭后，一个群组只有一个会话和配置。开启的话群组的每个人都有自己的会话上下文
+  GROUP_CHAT_BOT_SHARE_MODE: false,
+  // 为了避免4096字符限制，将消息删减
+  AUTO_TRIM_HISTORY: false,
+  // 最大历史记录长度
+  MAX_HISTORY_LENGTH: 20,
+  // 调试模式
+  DEBUG_MODE: false,
+  // 当前版本
+  BUILD_TIMESTAMP: 1679554575,
+  // 当前版本 commit id
+  BUILD_VERSION: "74df926",
+  // 默认咒语
+  SYSTEM_INIT_MESSAGE: "\u4F60\u662F\u4E00\u4E2A\u5F97\u529B\u7684\u52A9\u624B"
+};
+var CONST = {
+  PASSWORD_KEY: "chat_history_password",
+  GROUP_TYPES: ["group", "supergroup"]
+};
+var DATABASE = null;
+function initEnv(env) {
+  DATABASE = env.DATABASE;
+  for (const key in ENV) {
+    if (env[key]) {
+      switch (typeof ENV[key]) {
+        case "number":
+          ENV[key] = parseInt(env[key]) || ENV[key];
+          break;
+        case "boolean":
+          ENV[key] = (env[key] || "false") === "true";
+          break;
+        case "object":
+          if (Array.isArray(ENV[key])) {
+            ENV[key] = env[key].split(",");
+          } else {
+            ENV[key] = env[key];
+          }
+          break;
+        default:
+          ENV[key] = env[key];
+          break;
+      }
+    }
+  }
+  {
+    if (env.TELEGRAM_TOKEN && !ENV.TELEGRAM_AVAILABLE_TOKENS.includes(env.TELEGRAM_TOKEN)) {
+      if (env.BOT_NAME && ENV.TELEGRAM_AVAILABLE_TOKENS.length === ENV.TELEGRAM_BOT_NAME.length) {
+        ENV.TELEGRAM_BOT_NAME.push(env.BOT_NAME);
+      }
+      ENV.TELEGRAM_AVAILABLE_TOKENS.push(env.TELEGRAM_TOKEN);
+    }
+  }
+  USER_CONFIG.SYSTEM_INIT_MESSAGE = ENV.SYSTEM_INIT_MESSAGE;
+  console.log("\u521D\u59CB\u5316 ENV", ENV);
 }
 
 // src/telegram.js
@@ -258,30 +262,60 @@ async function sendMessageToChatGPT(message, history) {
       ...USER_CONFIG.OPENAI_API_EXTRA_PARAMS,
       messages: [...history || [], { role: "user", content: message }]
     };
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${ENV.API_KEY}`
-      },
-      body: JSON.stringify(body)
-    }).then((res) => res.json());
-    if (resp.error?.message) {
-      return `OpenAI API \u9519\u8BEF
+    for (const apiKey of ENV.API_KEYS) {
+      if (await DATABASE.get("keyDisabled:" + apiKey)) {
+        continue;
+      }
+      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+      }).then((res) => res.json());
+      if (resp.error?.message) {
+        if (resp.error.message.startsWith("Rate limit reached")) {
+          await DATABASE.put("keyDisabled:" + apiKey, resp.error.message, { expirationTtl: 60 * 2 });
+          continue;
+        }
+        return `OpenAI API \u9519\u8BEF
 > ${resp.error.message}}`;
+      }
+      return resp.choices[0].message.content;
     }
-    return resp.choices[0].message.content;
+    return "\u5F53\u524D\u6CA1\u6709\u53EF\u7528\u7684 API KEY";
   } catch (e) {
     console.error(e);
-    return `\u6211\u4E0D\u77E5\u9053\u8BE5\u600E\u4E48\u56DE\u7B54
+    return `\u8BF7\u6C42\u9519\u8BEF
 > ${e.message}}`;
   }
 }
+var getCredits = async () => {
+  const status = await Promise.all(ENV.API_KEYS.map(async (key) => {
+    try {
+      const req = await fetch("https://api.openai.com/dashboard/billing/credit_grants", {
+        headers: {
+          "Authorization": `Bearer ${key}`
+        }
+      });
+      const res = await req.json();
+      if (res.error) {
+        return `${key}: ${res.error.message}`;
+      }
+      return `${key}: ${res.total_available} / ${res.total_granted}`;
+    } catch (error) {
+      return `${key}: ${error.message}`;
+    }
+  }));
+  return status.join("\n");
+};
 
 // src/command.js
 var commandHandlers = {
   "/help": {
     help: "\u83B7\u53D6\u547D\u4EE4\u5E2E\u52A9",
+    hidden: true,
     fn: commandGetHelp
   },
   "/new": {
@@ -299,6 +333,7 @@ var commandHandlers = {
   },
   "/start": {
     help: "\u83B7\u53D6\u4F60\u7684ID\uFF0C\u5E76\u53D1\u8D77\u65B0\u7684\u5BF9\u8BDD",
+    hidden: true,
     fn: commandCreateNewChatContext,
     needAuth: function() {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
@@ -309,6 +344,7 @@ var commandHandlers = {
   },
   "/version": {
     help: "\u83B7\u53D6\u5F53\u524D\u7248\u672C\u53F7, \u5224\u65AD\u662F\u5426\u9700\u8981\u66F4\u65B0",
+    hidden: true,
     fn: commandFetchUpdate,
     needAuth: function() {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
@@ -319,12 +355,33 @@ var commandHandlers = {
   },
   "/setenv": {
     help: "\u8BBE\u7F6E\u7528\u6237\u914D\u7F6E\uFF0C\u547D\u4EE4\u5B8C\u6574\u683C\u5F0F\u4E3A /setenv KEY=VALUE",
+    hidden: true,
     fn: commandUpdateUserConfig,
     needAuth: function() {
       if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
         return ["administrator", "creator"];
       }
       return false;
+    }
+  },
+  "/setinit": {
+    help: "\u8BBE\u7F6E\u5F00\u59CB\u65B0\u4F1A\u8BDD\u65F6\u53D1\u9001\u7684\u5185\u5BB9\uFF0C\u201C\u5492\u8BED\u201D",
+    fn: (message, command, subcommand) => commandUpdateUserConfig(message, command, "SYSTEM_INIT_MESSAGE=" + subcommand),
+    needAuth: function() {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+        return ["administrator", "creator"];
+      }
+      return false;
+    }
+  },
+  "/credits": {
+    help: "\u83B7\u53D6 API Key \u5269\u4F59\u989D\u5EA6",
+    hidden: true,
+    fn: async () => {
+      if (CURRENT_CHAT_CONTEXT.chat_id !== 351768429)
+        return;
+      const credits = await getCredits();
+      return sendMessageToTelegram(credits);
     }
   }
 };
@@ -335,19 +392,25 @@ async function commandGetHelp(message, command, subcommand) {
 async function commandCreateNewChatContext(message, command, subcommand) {
   try {
     await DATABASE.delete(SHARE_CONTEXT.chatHistoryKey);
-    if (command === "/new") {
-      return sendMessageToTelegram("\u65B0\u7684\u5BF9\u8BDD\u5DF2\u7ECF\u5F00\u59CB");
-    } else {
+    if (command === "/start") {
       if (SHARE_CONTEXT.chatType === "private") {
-        return sendMessageToTelegram(
+        sendMessageToTelegram(
           `\u65B0\u7684\u5BF9\u8BDD\u5DF2\u7ECF\u5F00\u59CB\uFF0C\u4F60\u7684ID(${CURRENT_CHAT_CONTEXT.chat_id})`
         );
       } else {
-        return sendMessageToTelegram(
+        sendMessageToTelegram(
           `\u65B0\u7684\u5BF9\u8BDD\u5DF2\u7ECF\u5F00\u59CB\uFF0C\u7FA4\u7EC4ID(${CURRENT_CHAT_CONTEXT.chat_id})`
         );
       }
     }
+    sendChatActionToTelegram("typing").then(console.log).catch(console.error);
+    const initMessage = subcommand || USER_CONFIG.SYSTEM_INIT_MESSAGE;
+    const history = [];
+    const answer = await sendMessageToChatGPT(initMessage, history);
+    history.push({ role: "user", content: initMessage });
+    history.push({ role: "assistant", content: answer });
+    await DATABASE.put(SHARE_CONTEXT.chatHistoryKey, JSON.stringify(history));
+    return sendMessageToTelegram(answer);
   } catch (e) {
     return sendMessageToTelegram(`ERROR: ${e.message}`);
   }
@@ -361,6 +424,9 @@ async function commandUpdateUserConfig(message, command, subcommand) {
   }
   const key = subcommand.slice(0, kv);
   const value = subcommand.slice(kv + 1);
+  if (!value) {
+    return sendMessageToTelegram("\u8BF7\u8F93\u5165\u5185\u5BB9");
+  }
   try {
     switch (typeof USER_CONFIG[key]) {
       case "number":
@@ -456,9 +522,9 @@ async function setCommandForTelegram(token) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        commands: Object.keys(commandHandlers).map((key) => ({
+        commands: Object.entries(commandHandlers).filter(([key, value]) => !value.hidden).map(([key, value]) => ({
           command: key,
-          description: commandHandlers[key].help
+          description: value.help
         }))
       })
     }
@@ -527,7 +593,7 @@ async function msgSaveLastMessage(message) {
   return null;
 }
 async function msgCheckEnvIsReady(message) {
-  if (!ENV.API_KEY) {
+  if (!ENV.API_KEYS) {
     return sendMessageToTelegram("OpenAI API Key \u672A\u8BBE\u7F6E");
   }
   if (!DATABASE) {
@@ -683,7 +749,6 @@ async function processMessageByChatType(message) {
   return null;
 }
 async function loadHistory(key) {
-  const initMessage = { role: "system", content: USER_CONFIG.SYSTEM_INIT_MESSAGE };
   let history = [];
   try {
     history = await DATABASE.get(key).then((res) => JSON.parse(res));
@@ -691,7 +756,7 @@ async function loadHistory(key) {
     console.error(e);
   }
   if (!history || !Array.isArray(history) || history.length === 0) {
-    history = [initMessage];
+    history = [];
   }
   if (ENV.AUTO_TRIM_HISTORY && ENV.MAX_HISTORY_LENGTH > 0) {
     if (history.length > ENV.MAX_HISTORY_LENGTH) {
@@ -937,7 +1002,7 @@ var main_default = {
       const resp = await handleRequest(request);
       return resp || new Response("NOTFOUND", { status: 404 });
     } catch (e) {
-      console.error(e);
+      console.error(e, e.message, e.stack);
       return new Response("ERROR:" + e.message, { status: 200 });
     }
   }

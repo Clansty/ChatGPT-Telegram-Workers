@@ -1,3 +1,5 @@
+import { USER_CONFIG } from "./context";
+
 export const ENV = {
   // OpenAI API Key
   API_KEYS: [],
@@ -69,4 +71,6 @@ export function initEnv(env) {
       ENV.TELEGRAM_AVAILABLE_TOKENS.push(env.TELEGRAM_TOKEN);
     }
   }
+  USER_CONFIG.SYSTEM_INIT_MESSAGE = ENV.SYSTEM_INIT_MESSAGE;
+  console.log('初始化 ENV', ENV)
 }
