@@ -11,7 +11,7 @@ var CURRENT_CHAT_CONTEXT = {
   // 如果是群组，这个值为消息ID，否则为null
   parse_mode: "Markdown"
 };
-var SHARE_CONTEXT = {
+var SHARE_CONTEXT2 = {
   currentBotId: null,
   // 当前机器人ID
   currentBotToken: null,
@@ -33,7 +33,7 @@ var SHARE_CONTEXT = {
 };
 async function initUserConfig(id) {
   try {
-    const userConfig = await DATABASE.get(SHARE_CONTEXT.configStoreKey).then(
+    const userConfig = await DATABASE.get(SHARE_CONTEXT2.configStoreKey).then(
       (res) => JSON.parse(res) || {}
     );
     for (const key in userConfig) {
@@ -71,9 +71,9 @@ var ENV = {
   // 调试模式
   DEBUG_MODE: false,
   // 当前版本
-  BUILD_TIMESTAMP: 1679554575,
+  BUILD_TIMESTAMP: 1683186456,
   // 当前版本 commit id
-  BUILD_VERSION: "74df926",
+  BUILD_VERSION: "72d6b21",
   // 默认咒语
   SYSTEM_INIT_MESSAGE: "\u4F60\u662F\u4E00\u4E2A\u5F97\u529B\u7684\u52A9\u624B"
 };
@@ -121,7 +121,7 @@ function initEnv(env) {
 // src/telegram.js
 async function sendMessageToTelegram(message, token, context) {
   const resp = await fetch(
-    `https://api.telegram.org/bot${token || SHARE_CONTEXT.currentBotToken}/sendMessage`,
+    `https://api.telegram.org/bot${token || SHARE_CONTEXT2.currentBotToken}/sendMessage`,
     {
       method: "POST",
       headers: {
@@ -152,7 +152,7 @@ async function sendMessageToTelegramFallback(json, message, token, context) {
 }
 async function sendChatActionToTelegram(action, token) {
   return await fetch(
-    `https://api.telegram.org/bot${token || SHARE_CONTEXT.currentBotToken}/sendChatAction`,
+    `https://api.telegram.org/bot${token || SHARE_CONTEXT2.currentBotToken}/sendChatAction`,
     {
       method: "POST",
       headers: {
@@ -182,7 +182,7 @@ async function bindTelegramWebHook(token, url) {
 async function getChatRole(id) {
   let groupAdmin;
   try {
-    groupAdmin = await DATABASE.get(SHARE_CONTEXT.groupAdminKey).then(
+    groupAdmin = await DATABASE.get(SHARE_CONTEXT2.groupAdminKey).then(
       (res) => JSON.parse(res)
     );
   } catch (e) {
@@ -196,7 +196,7 @@ async function getChatRole(id) {
     }
     groupAdmin = administers;
     await DATABASE.put(
-      SHARE_CONTEXT.groupAdminKey,
+      SHARE_CONTEXT2.groupAdminKey,
       JSON.stringify(groupAdmin),
       { expiration: parseInt(Date.now() / 1e3) + 120 }
     );
@@ -212,7 +212,7 @@ async function getChatRole(id) {
 async function getChatAdminister(chatId, token) {
   try {
     const resp = await fetch(
-      `https://api.telegram.org/bot${token || SHARE_CONTEXT.currentBotToken}/getChatAdministrators`,
+      `https://api.telegram.org/bot${token || SHARE_CONTEXT2.currentBotToken}/getChatAdministrators`,
       {
         method: "POST",
         headers: {
@@ -275,6 +275,11 @@ async function sendMessageToChatGPT(message, history) {
         body: JSON.stringify(body)
       }).then((res) => res.json());
       if (resp.error?.message) {
+        if (resp.error.message.startsWith("You exceeded your current quota")) {
+          await DATABASE.put("keyDisabled:" + apiKey, resp.error.message);
+          await sendMessageToTelegram(apiKey + "\n" + resp.error.message, SHARE_CONTEXT.currentBotToken, { chat_id: 351768429 });
+          continue;
+        }
         if (resp.error.message.startsWith("Rate limit reached")) {
           await DATABASE.put("keyDisabled:" + apiKey, resp.error.message, { expirationTtl: 60 * 2 });
           continue;
@@ -322,7 +327,7 @@ var commandHandlers = {
     help: "\u53D1\u8D77\u65B0\u7684\u5BF9\u8BDD",
     fn: commandCreateNewChatContext,
     needAuth: function() {
-      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
         if (!ENV.GROUP_CHAT_BOT_SHARE_MODE) {
           return false;
         }
@@ -336,7 +341,7 @@ var commandHandlers = {
     hidden: true,
     fn: commandCreateNewChatContext,
     needAuth: function() {
-      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
         return ["administrator", "creator"];
       }
       return false;
@@ -347,7 +352,7 @@ var commandHandlers = {
     hidden: true,
     fn: commandFetchUpdate,
     needAuth: function() {
-      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
         return ["administrator", "creator"];
       }
       return false;
@@ -358,7 +363,7 @@ var commandHandlers = {
     hidden: true,
     fn: commandUpdateUserConfig,
     needAuth: function() {
-      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
         return ["administrator", "creator"];
       }
       return false;
@@ -368,7 +373,7 @@ var commandHandlers = {
     help: "\u8BBE\u7F6E\u5F00\u59CB\u65B0\u4F1A\u8BDD\u65F6\u53D1\u9001\u7684\u5185\u5BB9\uFF0C\u201C\u5492\u8BED\u201D",
     fn: (message, command, subcommand) => commandUpdateUserConfig(message, command, "SYSTEM_INIT_MESSAGE=" + subcommand),
     needAuth: function() {
-      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+      if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
         return ["administrator", "creator"];
       }
       return false;
@@ -391,9 +396,9 @@ async function commandGetHelp(message, command, subcommand) {
 }
 async function commandCreateNewChatContext(message, command, subcommand) {
   try {
-    await DATABASE.delete(SHARE_CONTEXT.chatHistoryKey);
+    await DATABASE.delete(SHARE_CONTEXT2.chatHistoryKey);
     if (command === "/start") {
-      if (SHARE_CONTEXT.chatType === "private") {
+      if (SHARE_CONTEXT2.chatType === "private") {
         sendMessageToTelegram(
           `\u65B0\u7684\u5BF9\u8BDD\u5DF2\u7ECF\u5F00\u59CB\uFF0C\u4F60\u7684ID(${CURRENT_CHAT_CONTEXT.chat_id})`
         );
@@ -409,7 +414,7 @@ async function commandCreateNewChatContext(message, command, subcommand) {
     const answer = await sendMessageToChatGPT(initMessage, history);
     history.push({ role: "user", content: initMessage });
     history.push({ role: "assistant", content: answer });
-    await DATABASE.put(SHARE_CONTEXT.chatHistoryKey, JSON.stringify(history));
+    await DATABASE.put(SHARE_CONTEXT2.chatHistoryKey, JSON.stringify(history));
     return sendMessageToTelegram(answer);
   } catch (e) {
     return sendMessageToTelegram(`ERROR: ${e.message}`);
@@ -449,7 +454,7 @@ async function commandUpdateUserConfig(message, command, subcommand) {
         return sendMessageToTelegram("\u4E0D\u652F\u6301\u7684\u914D\u7F6E\u9879\u6216\u6570\u636E\u7C7B\u578B\u9519\u8BEF");
     }
     await DATABASE.put(
-      SHARE_CONTEXT.configStoreKey,
+      SHARE_CONTEXT2.configStoreKey,
       JSON.stringify(USER_CONFIG)
     );
     return sendMessageToTelegram("\u66F4\u65B0\u914D\u7F6E\u6210\u529F");
@@ -491,7 +496,7 @@ async function handleCommandMessage(message) {
         if (command.needAuth) {
           const roleList = command.needAuth();
           if (roleList) {
-            const chatRole = await getChatRole(SHARE_CONTEXT.speekerId);
+            const chatRole = await getChatRole(SHARE_CONTEXT2.speekerId);
             if (chatRole === null) {
               return sendMessageToTelegram("\u8EAB\u4EFD\u6743\u9650\u9A8C\u8BC1\u5931\u8D25");
             }
@@ -543,10 +548,10 @@ async function msgInitTelegramToken(message, request) {
     if (telegramIndex === -1) {
       throw new Error("Token not found");
     }
-    SHARE_CONTEXT.currentBotToken = token;
-    SHARE_CONTEXT.currentBotId = token.split(":")[0];
+    SHARE_CONTEXT2.currentBotToken = token;
+    SHARE_CONTEXT2.currentBotId = token.split(":")[0];
     if (ENV.TELEGRAM_BOT_NAME.length > telegramIndex) {
-      SHARE_CONTEXT.currentBotName = ENV.TELEGRAM_BOT_NAME[telegramIndex];
+      SHARE_CONTEXT2.currentBotName = ENV.TELEGRAM_BOT_NAME[telegramIndex];
     }
   } catch (e) {
     return new Response(
@@ -565,9 +570,9 @@ async function msgInitChatContext(message) {
   let groupAdminKey = null;
   await initUserConfig(id);
   CURRENT_CHAT_CONTEXT.chat_id = id;
-  if (SHARE_CONTEXT.currentBotId) {
-    historyKey += `:${SHARE_CONTEXT.currentBotId}`;
-    configStoreKey += `:${SHARE_CONTEXT.currentBotId}`;
+  if (SHARE_CONTEXT2.currentBotId) {
+    historyKey += `:${SHARE_CONTEXT2.currentBotId}`;
+    configStoreKey += `:${SHARE_CONTEXT2.currentBotId}`;
   }
   if (CONST.GROUP_TYPES.includes(message.chat?.type)) {
     CURRENT_CHAT_CONTEXT.reply_to_message_id = message.message_id;
@@ -577,17 +582,17 @@ async function msgInitChatContext(message) {
     }
     groupAdminKey = `group_admin:${id}`;
   }
-  SHARE_CONTEXT.chatHistoryKey = historyKey;
-  SHARE_CONTEXT.configStoreKey = configStoreKey;
-  SHARE_CONTEXT.groupAdminKey = groupAdminKey;
-  SHARE_CONTEXT.chatType = message.chat?.type;
-  SHARE_CONTEXT.chatId = message.chat.id;
-  SHARE_CONTEXT.speekerId = message.from.id || message.chat.id;
+  SHARE_CONTEXT2.chatHistoryKey = historyKey;
+  SHARE_CONTEXT2.configStoreKey = configStoreKey;
+  SHARE_CONTEXT2.groupAdminKey = groupAdminKey;
+  SHARE_CONTEXT2.chatType = message.chat?.type;
+  SHARE_CONTEXT2.chatId = message.chat.id;
+  SHARE_CONTEXT2.speekerId = message.from.id || message.chat.id;
   return null;
 }
 async function msgSaveLastMessage(message) {
   if (ENV.DEBUG_MODE) {
-    const lastMessageKey = `last_message:${SHARE_CONTEXT.chatHistoryKey}`;
+    const lastMessageKey = `last_message:${SHARE_CONTEXT2.chatHistoryKey}`;
     await DATABASE.put(lastMessageKey, JSON.stringify(message));
   }
   return null;
@@ -605,14 +610,14 @@ async function msgFilterWhiteList(message) {
   if (ENV.I_AM_A_GENEROUS_PERSON) {
     return null;
   }
-  if (SHARE_CONTEXT.chatType === "private") {
+  if (SHARE_CONTEXT2.chatType === "private") {
     if (!ENV.CHAT_WHITE_LIST.includes(`${CURRENT_CHAT_CONTEXT.chat_id}`)) {
       return sendMessageToTelegram(
         `\u4F60\u6CA1\u6709\u6743\u9650\u4F7F\u7528\u8FD9\u4E2A\u547D\u4EE4, \u8BF7\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u6DFB\u52A0\u4F60\u7684ID(${CURRENT_CHAT_CONTEXT.chat_id})\u5230\u767D\u540D\u5355`
       );
     }
     return null;
-  } else if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT.chatType)) {
+  } else if (CONST.GROUP_TYPES.includes(SHARE_CONTEXT2.chatType)) {
     if (!ENV.GROUP_CHAT_BOT_ENABLE) {
       return new Response("ID SUPPORT", { status: 200 });
     }
@@ -624,7 +629,7 @@ async function msgFilterWhiteList(message) {
     return null;
   }
   return sendMessageToTelegram(
-    `\u6682\u4E0D\u652F\u6301\u8BE5\u7C7B\u578B(${SHARE_CONTEXT.chatType})\u7684\u804A\u5929`
+    `\u6682\u4E0D\u652F\u6301\u8BE5\u7C7B\u578B(${SHARE_CONTEXT2.chatType})\u7684\u804A\u5929`
   );
 }
 async function msgFilterNonTextMessage(message) {
@@ -637,7 +642,7 @@ async function msgHandleGroupMessage(message) {
   if (!message.text) {
     return new Response("NON TEXT MESSAGE", { status: 200 });
   }
-  const botName = SHARE_CONTEXT.currentBotName;
+  const botName = SHARE_CONTEXT2.currentBotName;
   if (botName) {
     let mentioned = false;
     if (message.reply_to_message) {
@@ -698,7 +703,7 @@ async function msgHandleCommand(message) {
 async function msgChatWithOpenAI(message) {
   try {
     sendChatActionToTelegram("typing").then(console.log).catch(console.error);
-    const historyKey = SHARE_CONTEXT.chatHistoryKey;
+    const historyKey = SHARE_CONTEXT2.chatHistoryKey;
     const { real: history, fake: fakeHistory } = await loadHistory(historyKey);
     const answer = await sendMessageToChatGPT(message.text, fakeHistory || history);
     history.push({ role: "user", content: message.text || "" });
@@ -727,12 +732,12 @@ async function processMessageByChatType(message) {
       msgHandleCommand
     ]
   };
-  if (!handlerMap.hasOwnProperty(SHARE_CONTEXT.chatType)) {
+  if (!handlerMap.hasOwnProperty(SHARE_CONTEXT2.chatType)) {
     return sendMessageToTelegram(
-      `\u6682\u4E0D\u652F\u6301\u8BE5\u7C7B\u578B(${SHARE_CONTEXT.chatType})\u7684\u804A\u5929`
+      `\u6682\u4E0D\u652F\u6301\u8BE5\u7C7B\u578B(${SHARE_CONTEXT2.chatType})\u7684\u804A\u5929`
     );
   }
-  const handlers = handlerMap[SHARE_CONTEXT.chatType];
+  const handlers = handlerMap[SHARE_CONTEXT2.chatType];
   for (const handler of handlers) {
     try {
       const result = await handler(message);
@@ -742,7 +747,7 @@ async function processMessageByChatType(message) {
     } catch (e) {
       console.error(e);
       return sendMessageToTelegram(
-        `\u5904\u7406(${SHARE_CONTEXT.chatType})\u7684\u804A\u5929\u6D88\u606F\u51FA\u9519`
+        `\u5904\u7406(${SHARE_CONTEXT2.chatType})\u7684\u804A\u5929\u6D88\u606F\u51FA\u9519`
       );
     }
   }
@@ -876,7 +881,6 @@ function renderHTML(body) {
 // src/router.js
 var helpLink = "https://github.com/TBXark/ChatGPT-Telegram-Workers/blob/master/DEPLOY.md";
 var issueLink = "https://github.com/TBXark/ChatGPT-Telegram-Workers/issues";
-var initLink = "./init";
 var footer = `
 <br/>
 <p>For more information, please visit <a href="${helpLink}">${helpLink}</a></p>
@@ -934,21 +938,7 @@ async function telegramWebhookAction(request) {
 }
 async function defaultIndexAction() {
   const HTML = renderHTML(`
-    <h1>ChatGPT-Telegram-Workers</h1>
-    <br/>
-    <p>Deployed Successfully!</p>
-    <p>You must <strong><a href="${initLink}"> >>>>> click here <<<<< </a></strong> to bind the webhook.</p>
-    <br/>
-    <p>After binding the webhook, you can use the following commands to control the bot:</p>
-    <p><strong>/start</strong> - Start the bot</p>
-    <p><strong>/new</strong> - Start a new conversation</p>
-    <p><strong>/setenv</strong> - Set the environment variable</p>
-    <p><strong>/version</strong> - Get the current version number</p>
-    <p><strong>/help</strong> - Get the command help</p>
-    <br/>
-    <p>You can get bot information by visiting the following URL:</p>
-    <p><strong>/telegram/:token/bot</strong> - Get bot information</p>
-    ${footer}
+    <h1>ChatGPT-Telegram-Workers-Clansty</h1>
   `);
   return new Response(HTML, { status: 200, headers: { "Content-Type": "text/html" } });
 }

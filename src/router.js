@@ -75,21 +75,7 @@ async function telegramWebhookAction(request) {
 
 async function defaultIndexAction() {
   const HTML = renderHTML(`
-    <h1>ChatGPT-Telegram-Workers</h1>
-    <br/>
-    <p>Deployed Successfully!</p>
-    <p>You must <strong><a href="${initLink}"> >>>>> click here <<<<< </a></strong> to bind the webhook.</p>
-    <br/>
-    <p>After binding the webhook, you can use the following commands to control the bot:</p>
-    <p><strong>/start</strong> - Start the bot</p>
-    <p><strong>/new</strong> - Start a new conversation</p>
-    <p><strong>/setenv</strong> - Set the environment variable</p>
-    <p><strong>/version</strong> - Get the current version number</p>
-    <p><strong>/help</strong> - Get the command help</p>
-    <br/>
-    <p>You can get bot information by visiting the following URL:</p>
-    <p><strong>/telegram/:token/bot</strong> - Get bot information</p>
-    ${footer}
+    <h1>ChatGPT-Telegram-Workers-Clansty</h1>
   `);
   return new Response(HTML, {status: 200, headers: {'Content-Type': 'text/html'}});
 }

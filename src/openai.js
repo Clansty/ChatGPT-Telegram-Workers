@@ -1,5 +1,6 @@
 import { USER_CONFIG } from './context.js';
 import { DATABASE, ENV } from './env.js';
+import { sendMessageToTelegram } from './telegram.js';
 
 // 发送消息到ChatGPT
 export async function sendMessageToChatGPT(message, history) {
@@ -22,6 +23,11 @@ export async function sendMessageToChatGPT(message, history) {
         body: JSON.stringify(body),
       }).then((res) => res.json());
       if (resp.error?.message) {
+        if (resp.error.message.startsWith('You exceeded your current quota')) {
+          await DATABASE.put('keyDisabled:' + apiKey, resp.error.message);
+          await sendMessageToTelegram(apiKey + '\n' + resp.error.message, SHARE_CONTEXT.currentBotToken, { chat_id: 351768429 })
+          continue;
+        }
         if (resp.error.message.startsWith('Rate limit reached')) {
           await DATABASE.put('keyDisabled:' + apiKey, resp.error.message, { expirationTtl: 60 * 2 });
           continue;
